@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Exposición de Aniversario</title>
+  <link rel="stylesheet" href="./style.css">
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Outfit:wght@300;400;600&display=swap"
+    rel="stylesheet">
+</head>
+
+<body>
+  <!-- Container for Three.js WebGL and CSS3D rendering -->
+  <div id="app"></div>
+
+  <!-- Instructions Overlay -->
+  <div id="instructions">
+    <h2>Nuestra Galería de Aniversario</h2>
+    <p>Haz clic y arrastra para mirar alrededor.<br>Usa las flechas (o W, A, S, D) para caminar hacia las paredes.</p>
+    <button id="start-btn">Entrar</button>
+  </div>
+
+  <!-- Audio Element (El audio de la pared 2) -->
+  <!-- Coloca tu archivo de audio aquí -->
+  <audio id="wall-audio" src="./resources/mi_audio.mp3"></audio>
+
+  <!-- Audio de Fondo (Jazz Romántico) -->
+  <!-- Coloca tu archivo de música de fondo aquí -->
+  <audio id="bg-music" src="./resources/ambiente_musica.mp3" loop preload="auto"></audio>
+
+  <script type="module" src="./main.js"></script>
+</body>
+
+</html>

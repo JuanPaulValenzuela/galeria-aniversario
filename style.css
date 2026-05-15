@@ -1,0 +1,419 @@
+/* style.css */
+:root {
+  --primary-color: #ff4b72;
+  --bg-dark: #0f0f13;
+  --text-light: #ffffff;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  overflow: hidden;
+  background-color: var(--bg-dark);
+  font-family: 'Outfit', sans-serif;
+  color: var(--text-light);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#app {
+  width: 100vw;
+  height: 100vh;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+/* Instructions Overlay */
+#instructions {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(15, 15, 19, 0.9);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+  transition: opacity 0.5s ease;
+}
+
+#instructions h2 {
+  font-family: 'Dancing Script', cursive;
+  font-size: 4rem;
+  color: var(--primary-color);
+  margin-bottom: 20px;
+}
+
+#instructions p {
+  font-size: 1.2rem;
+  margin-bottom: 30px;
+  color: #ccc;
+}
+
+#start-btn {
+  padding: 12px 30px;
+  font-size: 1.2rem;
+  font-family: 'Outfit', sans-serif;
+  color: white;
+  background: var(--primary-color);
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: transform 0.2s, background 0.2s;
+  box-shadow: 0 4px 15px rgba(255, 75, 114, 0.4);
+}
+
+#start-btn:hover {
+  transform: scale(1.05);
+  background: #ff2a55;
+}
+
+/* Base Styles for 3D Walls */
+.wall-container {
+  width: 2000px;
+  height: 1500px;
+  background: rgba(255, 255, 255, 0.08); /* Ligeramente más opaco para compensar la falta de blur */
+  /* backdrop-filter eliminado porque causa difuminado de texto en CSS3D */
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  /* Make sure pointer events are enabled for interactivity */
+  pointer-events: auto;
+}
+
+/* --- Wall 1: Letter & Hangman --- */
+.wall-front {
+  flex-direction: row;
+  justify-content: space-between;
+  gap: 40px;
+}
+
+.letter-box {
+  flex: 0.3;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 40px;
+  border-radius: 15px;
+  box-shadow: inset 0 0 20px rgba(255, 75, 114, 0.1);
+}
+
+.letter-box h1 {
+  font-family: 'Dancing Script', cursive;
+  font-size: 5rem;
+  color: var(--primary-color);
+  margin-bottom: 30px;
+}
+
+.letter-box p {
+  font-size: 2.2rem;
+  line-height: 1.6;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.game-box {
+  flex: 0.7;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 30px;
+  border-radius: 15px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.game-box h2 {
+  font-size: 3rem;
+  margin-bottom: 30px;
+  color: #fff;
+}
+
+.hangman-word {
+  display: flex;
+  gap: 10px;
+  margin-top: 80px; /* Separar más del título "Adivina la frase" */
+  margin-bottom: 30px;
+  justify-content: center;
+  transition: all 1s ease;
+}
+
+.hangman-word.vertical-mode {
+  flex-direction: column;
+  align-items: center;
+}
+
+.hangman-word.acrostic-mode {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 80px; /* Aumentado sustancialmente para llenar el espacio del teclado eliminado */
+  width: 100%;
+}
+
+.hangman-letter {
+  width: 60px;
+  height: 80px;
+  border-bottom: 4px solid #fff;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  font-size: 3.5rem;
+  font-weight: bold;
+  padding-bottom: 10px;
+  text-transform: uppercase;
+  transition: color 0.5s ease;
+}
+
+.hangman-letter.box-style {
+  border: 3px solid rgba(255, 255, 255, 0.5);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  align-items: center; /* Centrar verticalmente */
+  padding-bottom: 0;
+  width: 70px;
+  height: 70px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+}
+
+.hangman-letter.small {
+  width: 45px;
+  height: 55px;
+  font-size: 3rem;
+  padding-bottom: 2px;
+  border-bottom: 4px solid #fff;
+}
+
+.hangman-letter.small.box-style {
+  width: 55px;
+  height: 65px;
+  border: 4px solid rgba(255, 255, 255, 0.5);
+  border-radius: 8px;
+  align-items: center;
+  padding-bottom: 0;
+}
+
+.acrostic-row {
+  display: flex;
+  flex-wrap: wrap; /* Permite que la frase baje a la siguiente línea */
+  gap: 12px; 
+  align-items: center;
+  width: 100%;
+}
+
+.acrostic-space {
+  width: 35px; /* Separación de las palabras */
+}
+
+.hangman-letter.highlight {
+  color: var(--primary-color);
+  border-bottom-color: var(--primary-color);
+  text-shadow: 0 0 15px var(--primary-color);
+}
+
+
+
+.game-status {
+  margin-top: 40px;
+  font-size: 5rem; /* Tamaño gigante */
+  font-weight: bold;
+  height: 80px;
+  text-shadow: 0 0 20px rgba(255, 75, 114, 0.5); /* Resplandor romántico */
+}
+
+/* --- Wall 2: Painting --- */
+.painting-frame {
+  width: 1000px;
+  height: 1200px;
+  background: linear-gradient(135deg, #8b5a2b, #5c3a21);
+  padding: 20px;
+  border-radius: 5px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+  cursor: pointer;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.painting-frame:hover {
+  transform: scale(1.02);
+  box-shadow: 0 25px 60px rgba(255, 75, 114, 0.3);
+}
+
+.painting-inner {
+  width: 100%;
+  height: 100%;
+  background: url('./resources/Cuadro.png') center/cover;
+  background-color: #2a1a10; /* Color de fondo de respaldo si el navegador bloquea el TIFF */
+  border: 2px solid #3d2616;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.play-icon {
+  font-size: 4rem;
+  color: rgba(255, 255, 255, 0.8);
+  text-shadow: 0 4px 10px rgba(0,0,0,0.5);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.painting-frame:hover .play-icon {
+  opacity: 1;
+}
+
+/* --- Wall 3: Video --- */
+.video-container {
+  width: 1400px;
+  height: 800px;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+  border: 5px solid rgba(255, 255, 255, 0.1);
+}
+
+video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #000;
+}
+
+/* --- Wall 4: Photo Wall --- */
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 30px;
+  width: 100%;
+  height: 100%;
+  padding: 40px;
+}
+
+.photo-card {
+  background: white;
+  padding: 15px 15px 40px 15px;
+  border-radius: 2px;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+  transform: rotate(calc(var(--rot) * 1deg));
+  transition: transform 0.3s;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+}
+
+.photo-card:hover {
+  transform: scale(1.05) rotate(0deg) !important;
+  z-index: 10;
+}
+
+.photo-img {
+  width: 100%;
+  height: 380px; /* Aumentado para aprovechar mejor el espacio de la cuadrícula 3x3 */
+  background: #ddd;
+  object-fit: cover;
+  margin-bottom: 15px;
+}
+
+.photo-caption {
+  color: #333;
+  font-family: 'Dancing Script', cursive;
+  font-size: 2.5rem;
+  text-align: center;
+}
+
+/* --- Velas Románticas --- */
+.candle-container {
+  width: 40px;
+  height: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+.candle-flame {
+  width: 18px;
+  height: 35px;
+  background: radial-gradient(ellipse at bottom, #fff 0%, #ffeb3b 40%, #ff9800 80%, transparent 100%);
+  border-radius: 50% 50% 20% 20%;
+  box-shadow: 0 -10px 50px 30px rgba(255, 152, 0, 0.4);
+  animation: flicker 0.1s infinite alternate;
+  margin-bottom: -5px;
+  z-index: 2;
+}
+
+.candle-body {
+  width: 30px;
+  height: 85px;
+  background: linear-gradient(to right, #e0e0e0, #ffffff, #d0d0d0);
+  border-radius: 4px;
+  box-shadow: inset 0 20px 20px rgba(255, 152, 0, 0.2);
+}
+
+@keyframes flicker {
+  0% { transform: scale(1) translate(0, 0); opacity: 0.9; }
+  25% { transform: scale(1.05) translate(-1px, -1px); opacity: 1; }
+  50% { transform: scale(0.95) translate(1px, 1px); opacity: 0.8; }
+  75% { transform: scale(1.02) translate(1px, -1px); opacity: 1; }
+  100% { transform: scale(0.98) translate(-1px, 1px); opacity: 0.9; }
+}
+
+/* --- Luces de Navidad (Mural) --- */
+.string-lights {
+  position: absolute;
+  top: 30px;
+  left: 5%;
+  width: 90%;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.light-bulb {
+  width: 15px;
+  height: 25px;
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  position: relative;
+  animation: twinkle 1s infinite alternate;
+}
+
+.light-bulb::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: 2.5px;
+  width: 10px;
+  height: 10px;
+  background: #111;
+  border-radius: 2px;
+}
+
+.light-bulb.c1 {
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 20px 10px rgba(255, 255, 255, 0.6);
+}
+
+.light-bulb.c2 {
+  background: rgba(255, 220, 150, 0.9);
+  box-shadow: 0 0 20px 10px rgba(255, 220, 150, 0.6);
+}
+
+.light-bulb.c3 {
+  background: rgba(255, 150, 150, 0.9);
+  box-shadow: 0 0 20px 10px rgba(255, 150, 150, 0.6);
+}
+
+@keyframes twinkle {
+  0% { opacity: 0.4; filter: brightness(0.6); }
+  100% { opacity: 1; filter: brightness(1.3); }
+}

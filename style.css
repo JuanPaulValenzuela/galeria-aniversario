@@ -316,7 +316,7 @@ video {
 
 .photo-img {
   width: 100%;
-  height: 380px; /* Aumentado para aprovechar mejor el espacio de la cuadrícula 3x3 */
+  height: 270px; /* Reducido para que no choque con el piso y las velas */
   background: #ddd;
   object-fit: cover;
   margin-bottom: 15px;

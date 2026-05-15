@@ -493,15 +493,15 @@ function createLeftWall() {
   grid.className = 'photo-grid';
 
   const photos = [
-    { src: './resources/Boda.jpg', caption: 'El día más feliz' },
-    { src: './resources/IMG_20251212_175237_369.jpg', caption: 'Momentos juntos' },
-    { src: './resources/Juntos.jpg', caption: 'Siempre unidos' },
-    { src: './resources/Maria.jpg', caption: 'Mi persona favorita' },
-    { src: './resources/Pesebre.jpg', caption: 'Nuestro pesebre' },
-    { src: './resources/Salida.jpg', caption: 'Una salida inolvidable' },
-    { src: './resources/navidad.jpg', caption: 'Nuestra navidad' },
-    { src: './resources/paseo.jpg', caption: 'Aventuras contigo' },
-    { src: './resources/santisimo.jpg', caption: 'Paz y amor' }
+    { src: new URL('./resources/Boda.jpg', import.meta.url).href, caption: 'El día más feliz' },
+    { src: new URL('./resources/IMG_20251212_175237_369.jpg', import.meta.url).href, caption: 'Momentos juntos' },
+    { src: new URL('./resources/Juntos.jpg', import.meta.url).href, caption: 'Siempre unidos' },
+    { src: new URL('./resources/Maria.jpg', import.meta.url).href, caption: 'Mi persona favorita' },
+    { src: new URL('./resources/Pesebre.jpg', import.meta.url).href, caption: 'Nuestro pesebre' },
+    { src: new URL('./resources/Salida.jpg', import.meta.url).href, caption: 'Una salida inolvidable' },
+    { src: new URL('./resources/navidad.jpg', import.meta.url).href, caption: 'Nuestra navidad' },
+    { src: new URL('./resources/paseo.jpg', import.meta.url).href, caption: 'Aventuras contigo' },
+    { src: new URL('./resources/santisimo.jpg', import.meta.url).href, caption: 'Paz y amor' }
   ];
 
   photos.forEach((photo) => {

@@ -104,7 +104,7 @@ function init() {
   // cualquier click posterior en la pantalla intentará darle play.
   document.body.addEventListener('pointerdown', () => {
     if (bgMusic && bgMusic.paused) {
-      bgMusic.play().catch(e => {});
+      bgMusic.play().catch(e => { });
     }
   });
 
@@ -213,9 +213,11 @@ function createFrontWall() {
   letterBox.className = 'letter-box';
   letterBox.innerHTML = `
     <h1>Para mi amor,</h1>
-    <p>Cada momento contigo es un tesoro que guardo en mi corazón. He creado este pequeño mundo virtual para nosotros, para recordar nuestros momentos y divertirnos un poco.</p>
+    <p>Cada momento contigo es un tesoro que guardo en mi corazón. He creado este pequeño detalle para ti, para recordar nuestros momentos juntos y pedirle a Dios por nuestro amor.</p>
     <br>
-    <p>Resuelve el juego de la derecha para descubrir nuestro mensaje secreto.</p>
+    <p>Peroooo no todo es tan fácil, tienes que adivinar la palabra clave para poder entrar jijiji.</p>
+    <br>
+    <p>Pista: es nuestro primer amor ⛪</p>
     <br>
     <p>Te amo.</p>
   `;
@@ -493,15 +495,18 @@ function createLeftWall() {
   grid.className = 'photo-grid';
 
   const photos = [
-    { src: new URL('./resources/Boda.jpg', import.meta.url).href, caption: 'El día más feliz' },
-    { src: new URL('./resources/IMG_20251212_175237_369.jpg', import.meta.url).href, caption: 'Momentos juntos' },
+    { src: new URL('./resources/Boda.jpg', import.meta.url).href, caption: 'Hermosa siempre' },
+    { src: new URL('./resources/IMG_20251212_175237_369.jpg', import.meta.url).href, caption: 'Elegantes' },
     { src: new URL('./resources/Juntos.jpg', import.meta.url).href, caption: 'Siempre unidos' },
-    { src: new URL('./resources/Maria.jpg', import.meta.url).href, caption: 'Mi persona favorita' },
+    { src: new URL('./resources/Maria.jpg', import.meta.url).href, caption: 'Stella Maris' },
     { src: new URL('./resources/Pesebre.jpg', import.meta.url).href, caption: 'Nuestro pesebre' },
     { src: new URL('./resources/Salida.jpg', import.meta.url).href, caption: 'Una salida inolvidable' },
     { src: new URL('./resources/navidad.jpg', import.meta.url).href, caption: 'Nuestra navidad' },
     { src: new URL('./resources/paseo.jpg', import.meta.url).href, caption: 'Aventuras contigo' },
-    { src: new URL('./resources/santisimo.jpg', import.meta.url).href, caption: 'Paz y amor' }
+    { src: new URL('./resources/santisimo.jpg', import.meta.url).href, caption: 'Paz y amor' },
+    { src: new URL('./resources/Congreso_juntos.jpg', import.meta.url).href, caption: 'Un gran equipo' },
+    { src: new URL('./resources/Osito_de_peluche.jpg', import.meta.url).href, caption: 'Osito de peluce' },
+    { src: new URL('./resources/Princesa.jpg', import.meta.url).href, caption: 'Mi dulce princesa' }
   ];
 
   photos.forEach((photo) => {

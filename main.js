@@ -861,41 +861,15 @@ function createBackWall() {
   const videoContainer = document.createElement('div');
   videoContainer.className = 'video-container';
   videoContainer.innerHTML = `
-    <video controls loop>
-      <!-- Video personal -->
-      <source src="${new URL('./resources/nuestro_video.mp4', import.meta.url).href}" type="video/mp4">
-      Tu navegador no soporta el tag de video.
-    </video>
+    <iframe width="100%" height="100%" 
+      src="https://www.youtube.com/embed/3tpPDAmgWFc" 
+      title="Nuestro Video" 
+      frameborder="0" 
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+      allowfullscreen
+      style="border-radius: 10px; background: black;">
+    </iframe>
   `;
-
-  const videoEl = videoContainer.querySelector('video');
-  if (videoEl) {
-    videoEl.volume = 1.0; // Asegurar volumen nativo al 100%
-    
-    let isBoosted = false;
-    videoEl.addEventListener('play', () => {
-      setDucking(true);
-      
-      // Magia: Multiplicar el volumen del video por encima del 100% usando Web Audio API
-      if (!isBoosted) {
-        try {
-          const AudioContext = window.AudioContext || window.webkitAudioContext;
-          const audioCtx = new AudioContext();
-          const source = audioCtx.createMediaElementSource(videoEl);
-          const gainNode = audioCtx.createGain();
-          gainNode.gain.value = 2.5; // ¡Aumenta el volumen a 250%!
-          source.connect(gainNode);
-          gainNode.connect(audioCtx.destination);
-          isBoosted = true;
-        } catch (e) {
-          console.warn("No se pudo amplificar el audio del video", e);
-        }
-      }
-    });
-    
-    videoEl.addEventListener('pause', () => setDucking(false));
-    videoEl.addEventListener('ended', () => setDucking(false));
-  }
 
   el.appendChild(videoContainer);
   return new CSS3DObject(el);

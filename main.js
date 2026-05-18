@@ -2,10 +2,12 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CSS3DRenderer, CSS3DObject } from 'three/examples/jsm/renderers/CSS3DRenderer.js';
 
-let camera, scene, renderer;
+let camera, scene, cssRenderer, webglRenderer;
+let particles;
 let controls;
 let keys = {};
-let candles = [];
+let candles = []; // Cada entrada: { group, light, flameUniforms }
+let ledLights = []; // Luces LED del mural: { mesh, light, baseY, phase }
 let canMove = false;
 let bgMusic;
 
@@ -22,12 +24,187 @@ function init() {
   // Scene setup
   scene = new THREE.Scene();
 
-  // CSS3D Renderer setup
-  renderer = new CSS3DRenderer();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.domElement.style.position = 'absolute';
-  renderer.domElement.style.top = '0px';
-  container.appendChild(renderer.domElement);
+  // WebGL Renderer setup (Para partículas, pisos, iluminación)
+  webglRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  webglRenderer.setSize(window.innerWidth, window.innerHeight);
+  webglRenderer.setPixelRatio(window.devicePixelRatio);
+  webglRenderer.domElement.style.position = 'absolute';
+  webglRenderer.domElement.style.top = '0px';
+  webglRenderer.domElement.style.zIndex = '1'; // Fondo
+  container.appendChild(webglRenderer.domElement);
+
+  // CSS3D Renderer setup (Para elementos HTML interactivos)
+  cssRenderer = new CSS3DRenderer();
+  cssRenderer.setSize(window.innerWidth, window.innerHeight);
+  cssRenderer.domElement.style.position = 'absolute';
+  cssRenderer.domElement.style.top = '0px';
+  cssRenderer.domElement.style.zIndex = '2'; // Frente
+  // Fundamental para que los clicks pasen al DOM y el Drag pase a OrbitControls
+  // cssRenderer.domElement.style.pointerEvents = 'none' no se pone aquí para no romper el OrbitControls, 
+  // pero los fondos de pared HTML sí dejan pasar el click.
+  container.appendChild(cssRenderer.domElement);
+
+  // --- Magia WebGL (Habitación Física y Luces) ---
+  // Iluminación para dar volumen y realismo
+  // Luz ambiental cálida nocturna (ámbar suave, muy tenue para simular noche)
+  const ambientLight = new THREE.AmbientLight(0xff6a00, 0.18); // Naranja oscuro, intensidad baja
+  scene.add(ambientLight);
+
+  // Luz principal: ámbar dorado cálido tipo vela, desde arriba
+  const pointLight = new THREE.PointLight(0xff8c42, 1.6, 2800);
+  pointLight.position.set(0, 350, 0);
+  scene.add(pointLight);
+
+  // Segunda luz de acento: rojo vino desde abajo-frente (simula reflexión del piso)
+  const accentLight = new THREE.PointLight(0xc0392b, 0.5, 2000);
+  accentLight.position.set(0, -400, 300);
+  scene.add(accentLight);
+
+  // Tercera luz: ámbar suave lateral para dar profundidad
+  const sideLight = new THREE.PointLight(0xffa040, 0.7, 2500);
+  sideLight.position.set(-600, 200, -600);
+  scene.add(sideLight);
+
+  // ── PISO: Madera oscura con vetas procedurales ──────────────────────────
+  const floorCanvas = document.createElement('canvas');
+  floorCanvas.width = 512;
+  floorCanvas.height = 512;
+  const floorCtx = floorCanvas.getContext('2d');
+  // Base color caoba oscuro
+  floorCtx.fillStyle = '#1a0d06';
+  floorCtx.fillRect(0, 0, 512, 512);
+  // Tablones de madera (líneas horizontales)
+  const plankColors = ['#2b1206', '#1f0e05', '#261005', '#1a0c04'];
+  const plankHeight = 64;
+  for (let row = 0; row < 8; row++) {
+    const y = row * plankHeight;
+    floorCtx.fillStyle = plankColors[row % plankColors.length];
+    floorCtx.fillRect(0, y, 512, plankHeight - 2);
+    // Vetas de madera (líneas sinuosas)
+    floorCtx.strokeStyle = 'rgba(60,20,5,0.35)';
+    floorCtx.lineWidth = 1;
+    for (let v = 0; v < 6; v++) {
+      floorCtx.beginPath();
+      floorCtx.moveTo(0, y + 8 + v * 9);
+      for (let x = 0; x < 512; x += 30) {
+        floorCtx.quadraticCurveTo(x + 15, y + 8 + v * 9 + (Math.random() * 6 - 3), x + 30, y + 8 + v * 9);
+      }
+      floorCtx.stroke();
+    }
+    // Línea de junta entre tablones
+    floorCtx.fillStyle = '#0d0603';
+    floorCtx.fillRect(0, y + plankHeight - 2, 512, 2);
+  }
+  const floorTexture = new THREE.CanvasTexture(floorCanvas);
+  floorTexture.wrapS = THREE.RepeatWrapping;
+  floorTexture.wrapT = THREE.RepeatWrapping;
+  floorTexture.repeat.set(4, 4);
+
+  const floorMaterial = new THREE.MeshStandardMaterial({
+    map: floorTexture,
+    roughness: 0.55,   // Semi-brillante, como madera barnizada
+    metalness: 0.08,
+  });
+
+  // ── PAREDES: Estuco rojo vino / borgoña con textura granulada ────────────
+  const wallCanvas = document.createElement('canvas');
+  wallCanvas.width = 512;
+  wallCanvas.height = 512;
+  const wallCtx = wallCanvas.getContext('2d');
+  // Base azul acero medio oscuro — bonito y profundo sin ser negro
+  wallCtx.fillStyle = '#1a2d4a';
+  wallCtx.fillRect(0, 0, 512, 512);
+  // Ruido de estuco: pinceladas en tonos similares
+  const wallShades = ['rgba(30,55,90,0.55)', 'rgba(15,38,68,0.5)', 'rgba(40,70,110,0.38)', 'rgba(20,45,78,0.6)'];
+  for (let i = 0; i < 2800; i++) {
+    wallCtx.fillStyle = wallShades[Math.floor(Math.random() * wallShades.length)];
+    const wx = Math.random() * 512;
+    const wy = Math.random() * 512;
+    const ww = Math.random() * 18 + 4;
+    const wh = Math.random() * 6 + 1;
+    const angle = Math.random() * Math.PI;
+    wallCtx.save();
+    wallCtx.translate(wx, wy);
+    wallCtx.rotate(angle);
+    wallCtx.fillRect(-ww / 2, -wh / 2, ww, wh);
+    wallCtx.restore();
+  }
+  // Líneas sutiles tipo papel tapiz / paneles
+  wallCtx.strokeStyle = 'rgba(50,90,150,0.28)';
+  wallCtx.lineWidth = 1;
+  for (let ly = 0; ly < 512; ly += 128) {
+    wallCtx.beginPath(); wallCtx.moveTo(0, ly); wallCtx.lineTo(512, ly); wallCtx.stroke();
+  }
+  for (let lx = 0; lx < 512; lx += 128) {
+    wallCtx.beginPath(); wallCtx.moveTo(lx, 0); wallCtx.lineTo(lx, 512); wallCtx.stroke();
+  }
+
+  const wallTexture = new THREE.CanvasTexture(wallCanvas);
+  wallTexture.wrapS = THREE.RepeatWrapping;
+  wallTexture.wrapT = THREE.RepeatWrapping;
+  wallTexture.repeat.set(3, 2);
+
+  const wallMaterial = new THREE.MeshStandardMaterial({
+    map: wallTexture,
+    roughness: 0.92,   // Muy mate, como estuco
+    metalness: 0.0,
+  });
+
+  const wallGeometry = new THREE.PlaneGeometry(2000, 1500);
+  const floorGeometry = new THREE.PlaneGeometry(2000, 2000);
+  const offset = 1005; // 5px detrás de las paredes CSS (que están a 1000)
+
+  // Piso
+  const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -750; // Justo en la base de las paredes
+  scene.add(floor);
+
+  // Pared Frontal
+  const wallFront = new THREE.Mesh(wallGeometry, wallMaterial);
+  wallFront.position.set(0, 0, -offset);
+  scene.add(wallFront);
+
+  // Pared Trasera
+  const wallBack = new THREE.Mesh(wallGeometry, wallMaterial.clone());
+  wallBack.position.set(0, 0, offset);
+  wallBack.rotation.y = Math.PI;
+  scene.add(wallBack);
+
+  // Pared Derecha
+  const wallRight = new THREE.Mesh(wallGeometry, wallMaterial.clone());
+  wallRight.position.set(offset, 0, 0);
+  wallRight.rotation.y = -Math.PI / 2;
+  scene.add(wallRight);
+
+  // Pared Izquierda
+  const wallLeft = new THREE.Mesh(wallGeometry, wallMaterial.clone());
+  wallLeft.position.set(-offset, 0, 0);
+  wallLeft.rotation.y = Math.PI / 2;
+  scene.add(wallLeft);
+
+  // Sistema de Partículas (Luciérnagas mágicas)
+  const particleCount = 300; // Reducido para un efecto más sutil y elegante
+  const geometry = new THREE.BufferGeometry();
+  const positions = new Float32Array(particleCount * 3);
+
+  for (let i = 0; i < particleCount * 3; i++) {
+    // Distribuir en una esfera enorme alrededor del centro
+    positions[i] = (Math.random() - 0.5) * 3000;
+  }
+
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const material = new THREE.PointsMaterial({
+    color: 0xffd700, // Dorado
+    size: 6,
+    transparent: true,
+    opacity: 0.8,
+    blending: THREE.AdditiveBlending
+  });
+
+  particles = new THREE.Points(geometry, material);
+  scene.add(particles);
+  // ------------------------------------------
 
   // Room parameters
   const wallWidth = 2000;
@@ -66,11 +243,14 @@ function init() {
   leftWall.element.style.transition = 'opacity 2s ease-in-out';
   scene.add(leftWall);
 
+  // Luces LED del mural en WebGL (posicionadas sobre la pared izquierda)
+  createStringLightsWebGL(scene, -distance);
+
   // Velas románticas en el piso
   createCandles(scene);
 
-  // Controls setup
-  controls = new OrbitControls(camera, renderer.domElement);
+  // Controls setup (Atado al CSS Renderer porque está encima)
+  controls = new OrbitControls(camera, cssRenderer.domElement);
   controls.enableZoom = false; // Keep the user in the center
   controls.enablePan = false;
   controls.enableRotate = false; // Bloquear rotación inicialmente
@@ -118,8 +298,9 @@ function init() {
       leftWall.element.style.opacity = '1';
       leftWall.element.style.pointerEvents = 'auto';
 
-      candles.forEach(c => {
-        c.element.style.opacity = '1';
+      // Aparecer velas WebGL con retraso escalonado para efecto dramático
+      candles.forEach(({ group }, idx) => {
+        setTimeout(() => { group.visible = true; }, idx * 60);
       });
       canMove = true; // Habilitar movimiento al ganar
       controls.enableRotate = true; // Habilitar rotación de cámara al ganar
@@ -130,7 +311,8 @@ function init() {
 function onWindowResize() {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  cssRenderer.setSize(window.innerWidth, window.innerHeight);
+  webglRenderer.setSize(window.innerWidth, window.innerHeight);
 }
 
 function animate() {
@@ -138,12 +320,39 @@ function animate() {
   updateMovement();
   controls.update();
 
-  // Hacer que las velas siempre miren hacia la cámara (Billboarding)
-  candles.forEach(c => {
-    c.rotation.y = Math.atan2(camera.position.x - c.position.x, camera.position.z - c.position.z);
+  // Animar luces LED del mural (parpadeo suave y oscilación)
+  const t = performance.now() * 0.001;
+  ledLights.forEach(({ mesh, light, baseY, phase }) => {
+    const flicker = 0.75 + Math.sin(t * 3.5 + phase) * 0.15 + Math.sin(t * 7.1 + phase * 1.7) * 0.08;
+    if (light) light.intensity = flicker * 0.9;
+    if (mesh && mesh.material) mesh.material.opacity = 0.6 + flicker * 0.4;
+    // Pequeña oscilación vertical tipo colgante
+    if (mesh) mesh.position.y = baseY + Math.sin(t * 1.2 + phase) * 1.5;
   });
 
-  renderer.render(scene, camera);
+  // Animar llamas WebGL (fluctuación de llama y luz)
+  candles.forEach(({ flameUniforms, light, flameGroup }, i) => {
+    if (!flameUniforms) return;
+    flameUniforms.uTime.value = t + i * 1.3; // Desfase por vela
+    // Fluctuación sutil de la luz de punto
+    if (light) {
+      light.intensity = 0.6 + Math.sin(t * 4.7 + i) * 0.15 + Math.sin(t * 2.3 + i * 0.7) * 0.1;
+    }
+    // Ondeo de la llama
+    if (flameGroup) {
+      flameGroup.rotation.z = Math.sin(t * 3.1 + i * 0.9) * 0.08;
+      flameGroup.position.y = Math.sin(t * 5.2 + i * 1.1) * 1.5;
+    }
+  });
+
+  // Rotación mágica de las partículas
+  if (particles) {
+    particles.rotation.y += 0.0002; // Más lento y relajante
+    particles.rotation.x += 0.0001;
+  }
+
+  webglRenderer.render(scene, camera);
+  cssRenderer.render(scene, camera);
 }
 
 function updateMovement() {
@@ -179,28 +388,134 @@ function updateMovement() {
 // --- Wall Creators ---
 
 function createCandles(scene) {
-  for (let i = 0; i < 30; i++) {
-    const el = document.createElement('div');
-    el.className = 'candle-container';
-    el.innerHTML = `
-      <div class="candle-flame"></div>
-      <div class="candle-body"></div>
-    `;
-    const candle = new CSS3DObject(el);
+  // Shader de llama: distorsión procedural con ruido simplex simplificado
+  const flameVertexShader = `
+    uniform float uTime;
+    varying vec2 vUv;
+    varying float vDistort;
 
-    // Posicionarlas por todo el piso, evitando el centro exacto
+    float hash(vec2 p) {
+      return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+    }
+    float noise(vec2 p) {
+      vec2 i = floor(p);
+      vec2 f = fract(p);
+      f = f * f * (3.0 - 2.0 * f);
+      return mix(
+        mix(hash(i), hash(i + vec2(1,0)), f.x),
+        mix(hash(i + vec2(0,1)), hash(i + vec2(1,1)), f.x),
+        f.y
+      );
+    }
+
+    void main() {
+      vUv = uv;
+      vec3 pos = position;
+      // Distorsión lateral en la punta (más efecto arriba)
+      float sway = noise(vec2(pos.y * 2.0 + uTime * 1.8, uTime * 0.9)) - 0.5;
+      pos.x += sway * uv.y * 5.0;
+      // Ensanchamiento suave en la base
+      pos.x *= 1.0 - uv.y * 0.35;
+      vDistort = sway;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+    }
+  `;
+
+  const flameFragmentShader = `
+    uniform float uTime;
+    varying vec2 vUv;
+    varying float vDistort;
+
+    void main() {
+      // Gradiente vertical: base naranja, punta amarilla, desvanece en la cima
+      float core = 1.0 - vUv.y;
+      core = pow(core, 1.4);
+      // Suavizar bordes laterales
+      float edge = 1.0 - abs(vUv.x - 0.5) * 2.0;
+      edge = pow(edge, 0.7);
+      float alpha = core * edge;
+      alpha *= smoothstep(1.0, 0.7, vUv.y); // Desvanecer punta
+      alpha *= smoothstep(0.0, 0.15, vUv.y); // Desvanecer base
+      // Color: de rojo-naranja en base a amarillo en punta
+      vec3 col = mix(vec3(1.0, 0.25, 0.0), vec3(1.0, 0.85, 0.1), vUv.y);
+      col = mix(col, vec3(1.0, 1.0, 0.6), pow(vUv.y, 3.0)); // Núcleo brillante en la cima
+      gl_FragColor = vec4(col, alpha * 0.92);
+    }
+  `;
+
+  // Materiales reutilizables para el cuerpo de la vela
+  const waxMaterial = new THREE.MeshStandardMaterial({
+    color: 0xf5e6c8,   // Marfil cálido
+    roughness: 0.8,
+    metalness: 0.0,
+  });
+  const wickMaterial = new THREE.MeshStandardMaterial({ color: 0x1a1008 });
+
+  for (let i = 0; i < 30; i++) {
     let x, z;
     do {
       x = (Math.random() - 0.5) * 1800;
       z = (Math.random() - 0.5) * 1800;
     } while (Math.sqrt(x * x + z * z) < 300);
 
-    candle.position.set(x, -750 + 60, z); // El piso está en Y=-750, +60 por la mitad de la altura de la vela
-    candle.element.style.opacity = '0';
-    candle.element.style.transition = 'opacity 2s ease-in-out';
+    const group = new THREE.Group();
+    group.position.set(x, -750, z);
 
-    scene.add(candle);
-    candles.push(candle);
+    // Altura y radio aumentados para velas más grandes y visibles
+    const candleH = 90 + Math.random() * 80;   // antes: 40 + random*50
+    const candleR = 10 + Math.random() * 7;     // antes: 5 + random*4
+
+    // Cuerpo (cilindro)
+    const bodyGeo = new THREE.CylinderGeometry(candleR, candleR * 1.05, candleH, 12);
+    const body = new THREE.Mesh(bodyGeo, waxMaterial);
+    body.position.y = candleH / 2;
+    group.add(body);
+
+    // Mecha
+    const wickGeo = new THREE.CylinderGeometry(0.5, 0.5, 8, 6);
+    const wick = new THREE.Mesh(wickGeo, wickMaterial);
+    wick.position.y = candleH + 4;
+    group.add(wick);
+
+    // Llama (PlaneGeometry con ShaderMaterial, doble cara)
+    const flameUniforms = { uTime: { value: 0 } };
+    const flameMat = new THREE.ShaderMaterial({
+      uniforms: flameUniforms,
+      vertexShader: flameVertexShader,
+      fragmentShader: flameFragmentShader,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+    });
+
+    const flameGeo = new THREE.PlaneGeometry(candleR * 2.2, candleR * 3.5, 4, 8);
+    const flameMesh = new THREE.Mesh(flameGeo, flameMat);
+    flameMesh.position.y = candleH + 8 + (candleR * 1.75);
+
+    // Segunda plana perpendicular para dar volumen a la llama
+    const flameMesh2 = new THREE.Mesh(flameGeo, flameMat);
+    flameMesh2.position.y = candleH + 8 + (candleR * 1.75);
+    flameMesh2.rotation.y = Math.PI / 2;
+
+    const flameGroup = new THREE.Group();
+    flameGroup.add(flameMesh);
+    flameGroup.add(flameMesh2);
+    group.add(flameGroup);
+
+    // Luz de punto por vela (sólo 1 de cada 3 para no saturar la GPU)
+    let light = null;
+    if (i % 3 === 0) {
+      light = new THREE.PointLight(0xff7722, 0.9, 550);
+      light.position.set(0, candleH + 14, 0);
+      group.add(light);
+    }
+
+    // Invisible hasta ganar (igual que antes)
+    group.visible = false;
+
+    scene.add(group);
+    candles.push({ group, light, flameUniforms, flameGroup });
   }
 }
 
@@ -377,31 +692,108 @@ function initHangman(gameBox) {
 }
 
 function createConfetti() {
-  const heartSymbols = ['❤️', '💖', '💕', '💗'];
-  for (let i = 0; i < 80; i++) {
-    // Retrasar la creación de cada corazón para crear un efecto cascada/lluvia continua
-    setTimeout(() => {
-      const heart = document.createElement('div');
-      heart.innerText = heartSymbols[Math.floor(Math.random() * heartSymbols.length)];
-      heart.style.position = 'absolute';
-      heart.style.fontSize = `${Math.random() * 20 + 20}px`;
-      heart.style.left = Math.random() * 100 + '%';
-      heart.style.top = `${-50 - Math.random() * 100}px`; // Inician un poco más arriba
-      heart.style.zIndex = '9999';
-      heart.style.opacity = (Math.random() * 0.5 + 0.5).toString();
+  const heartCount = 80;
 
-      const duration = Math.random() * 3 + 3; // Entre 3s y 6s de caída
-      heart.style.transition = `top ${duration}s ease-in, transform ${duration}s linear`;
-      document.body.appendChild(heart);
-
-      setTimeout(() => {
-        heart.style.top = '100vh';
-        heart.style.transform = `rotate(${Math.random() * 720}deg) translateX(${Math.random() * 150 - 75}px)`;
-      }, 50);
-
-      setTimeout(() => heart.remove(), duration * 1000 + 100);
-    }, Math.random() * 2500); // Esparcir los nacimientos a lo largo de 2.5 segundos
+  // Forma de corazón con THREE.Shape (curvas de Bezier)
+  function makeHeartShape(size) {
+    const s = new THREE.Shape();
+    s.moveTo(0, size * 0.35);
+    s.bezierCurveTo(size * 0.5, size * 0.9, size, size * 0.6, size * 0.5, size * 0.1);
+    s.bezierCurveTo(size * 0.8, -size * 0.4, size * 0.3, -size * 0.6, 0, -size * 0.5);
+    s.bezierCurveTo(-size * 0.3, -size * 0.6, -size * 0.8, -size * 0.4, -size * 0.5, size * 0.1);
+    s.bezierCurveTo(-size, size * 0.6, -size * 0.5, size * 0.9, 0, size * 0.35);
+    return s;
   }
+
+  // Colores de corazón
+  const colors = [0xff1744, 0xff69b4, 0xff4081, 0xff80ab, 0xf50057];
+
+  // Geometrías reutilizables por tamaño (3 tamaños)
+  const geos = [14, 20, 28].map(sz => new THREE.ShapeGeometry(makeHeartShape(sz)));
+
+  const hearts = []; // { mesh, vx, vy, vz, rotSpeed, life }
+
+  for (let i = 0; i < heartCount; i++) {
+    setTimeout(() => {
+      const geo = geos[Math.floor(Math.random() * geos.length)];
+      const mat = new THREE.MeshStandardMaterial({
+        color: colors[Math.floor(Math.random() * colors.length)],
+        emissive: 0xff1744,
+        emissiveIntensity: 0.4,
+        transparent: true,
+        opacity: 0.85 + Math.random() * 0.15,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      });
+
+      const mesh = new THREE.Mesh(geo, mat);
+
+      // Posición inicial: dispersos en X/Z frente a la cámara, por encima
+      mesh.position.set(
+        (Math.random() - 0.5) * 1600,  // ancho de la habitación
+        700 + Math.random() * 300,      // arriba del techo visible
+        (Math.random() - 0.5) * 800     // profundidad
+      );
+
+      // Orientación inicial aleatoria
+      mesh.rotation.set(
+        Math.random() * Math.PI * 2,
+        Math.random() * Math.PI * 2,
+        Math.random() * Math.PI * 2
+      );
+
+      scene.add(mesh);
+
+      hearts.push({
+        mesh,
+        vx: (Math.random() - 0.5) * 1.5,   // deriva lateral
+        vy: -(3 + Math.random() * 3.5),      // velocidad de caída
+        vz: (Math.random() - 0.5) * 1.0,
+        rotX: (Math.random() - 0.5) * 0.04,
+        rotY: (Math.random() - 0.5) * 0.06,
+        rotZ: (Math.random() - 0.5) * 0.05,
+        born: performance.now(),
+        life: 4000 + Math.random() * 3000,   // tiempo de vida en ms
+      });
+    }, Math.random() * 2500);
+  }
+
+  // Loop propio de actualización de corazones (se integra en el requestAnimationFrame global)
+  function tickHearts() {
+    const now = performance.now();
+    for (let i = hearts.length - 1; i >= 0; i--) {
+      const h = hearts[i];
+      const age = now - h.born;
+
+      // Mover
+      h.mesh.position.x += h.vx;
+      h.mesh.position.y += h.vy;
+      h.mesh.position.z += h.vz;
+
+      // Rotar
+      h.mesh.rotation.x += h.rotX;
+      h.mesh.rotation.y += h.rotY;
+      h.mesh.rotation.z += h.rotZ;
+
+      // Desvanecer en los últimos 800ms de vida
+      const fadeStart = h.life - 800;
+      if (age > fadeStart) {
+        h.mesh.material.opacity = Math.max(0, 1 - (age - fadeStart) / 800) * 0.95;
+      }
+
+      // Eliminar cuando expira o cae muy abajo
+      if (age > h.life || h.mesh.position.y < -900) {
+        scene.remove(h.mesh);
+        h.mesh.material.dispose();
+        hearts.splice(i, 1);
+      }
+    }
+
+    if (hearts.length > 0) requestAnimationFrame(tickHearts);
+  }
+
+  // Arrancar el tick después de un frame para que los primeros corazones estén listos
+  setTimeout(() => requestAnimationFrame(tickHearts), 100);
 }
 
 function setDucking(isDucking) {
@@ -470,21 +862,137 @@ function createBackWall() {
   videoContainer.className = 'video-container';
   videoContainer.innerHTML = `
     <video controls loop>
-      <!-- Example open source video, replace with your own -->
-      <source src="https://www.w3schools.com/html/mov_bbb.mp4" type="video/mp4">
+      <!-- Video personal -->
+      <source src="${new URL('./resources/nuestro_video.mp4', import.meta.url).href}" type="video/mp4">
       Tu navegador no soporta el tag de video.
     </video>
   `;
 
   const videoEl = videoContainer.querySelector('video');
   if (videoEl) {
-    videoEl.addEventListener('play', () => setDucking(true));
+    videoEl.volume = 1.0; // Asegurar volumen nativo al 100%
+    
+    let isBoosted = false;
+    videoEl.addEventListener('play', () => {
+      setDucking(true);
+      
+      // Magia: Multiplicar el volumen del video por encima del 100% usando Web Audio API
+      if (!isBoosted) {
+        try {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          const audioCtx = new AudioContext();
+          const source = audioCtx.createMediaElementSource(videoEl);
+          const gainNode = audioCtx.createGain();
+          gainNode.gain.value = 2.5; // ¡Aumenta el volumen a 250%!
+          source.connect(gainNode);
+          gainNode.connect(audioCtx.destination);
+          isBoosted = true;
+        } catch (e) {
+          console.warn("No se pudo amplificar el audio del video", e);
+        }
+      }
+    });
+    
     videoEl.addEventListener('pause', () => setDucking(false));
     videoEl.addEventListener('ended', () => setDucking(false));
   }
 
   el.appendChild(videoContainer);
   return new CSS3DObject(el);
+}
+
+
+function createStringLightsWebGL(scene, wallX) {
+  // Dos tiras verticales de luces, una en cada lateral del mural (izquierda y derecha de la pared)
+  // La pared izquierda está en X = wallX ≈ -1000, rotada PI/2 en Y.
+  // Su ancho local corre a lo largo del eje Z: de -1000 a +1000.
+  // Los laterales del mural están en Z ≈ -750 y Z ≈ +750.
+
+  const palette = [
+    { hex: 0xffd700 }, // Dorado
+    { hex: 0xff6b9d }, // Rosa
+    { hex: 0x7ec8e3 }, // Celeste
+    { hex: 0xff9944 }, // Naranja cálido
+  ];
+
+  const xOffset = wallX < 0 ? wallX + 25 : wallX - 25; // levemente dentro de la pared
+  const topY = 650;   // altura del techo
+  const bottomY = -680;   // altura del suelo
+  const countPerSide = 16;
+  const bulbGeo = new THREE.SphereGeometry(11, 8, 8);
+
+  // Las dos columnas laterales: Z izquierda y Z derecha del mural
+  const sideZs = [-820, 820];
+
+  sideZs.forEach((sideZ, sideIdx) => {
+    const cablePoints = [];
+
+    for (let i = 0; i < countPerSide; i++) {
+      const frac = i / (countPerSide - 1);
+      // Ligera oscilación horizontal (tipo guirnalda que ondea) en X
+      const swayX = Math.sin(frac * Math.PI * 3) * 8;
+      const bulbY = topY - frac * (topY - bottomY);
+
+      const col = palette[(i + sideIdx * 2) % palette.length];
+
+      const bulbMat = new THREE.MeshStandardMaterial({
+        color: col.hex,
+        emissive: col.hex,
+        emissiveIntensity: 2.5,
+        transparent: true,
+        opacity: 0.98,
+      });
+
+      const bulb = new THREE.Mesh(bulbGeo, bulbMat.clone());
+      bulb.position.set(xOffset + swayX, bulbY, sideZ);
+      bulb.visible = false;
+      scene.add(bulb);
+
+      // PointLight en 1 de cada 2 para iluminación visible
+      let ptLight = null;
+      if (i % 2 === 0) {
+        ptLight = new THREE.PointLight(col.hex, 1.3, 400);
+        ptLight.position.copy(bulb.position);
+        ptLight.visible = false;
+        scene.add(ptLight);
+      }
+
+      ledLights.push({
+        mesh: bulb,
+        light: ptLight,
+        baseY: bulbY,
+        phase: Math.random() * Math.PI * 2,
+      });
+
+      cablePoints.push(new THREE.Vector3(xOffset + swayX, bulbY, sideZ));
+    }
+
+    // Cable vertical que conecta las bombillitas
+    const cableGeo = new THREE.BufferGeometry().setFromPoints(cablePoints);
+    const cableMat = new THREE.LineBasicMaterial({ color: 0x1a1008 });
+    const cable = new THREE.Line(cableGeo, cableMat);
+    cable.visible = false;
+    scene.add(cable);
+
+    // Aparecer al ganar
+    document.addEventListener('gameWon', () => {
+      setTimeout(() => {
+        cable.visible = true;
+      }, 1800);
+    });
+  });
+
+  // Aparición escalonada de todas las luces al ganar
+  document.addEventListener('gameWon', () => {
+    setTimeout(() => {
+      ledLights.forEach(({ mesh, light }, idx) => {
+        setTimeout(() => {
+          mesh.visible = true;
+          if (light) light.visible = true;
+        }, idx * 80);
+      });
+    }, 1800);
+  });
 }
 
 function createLeftWall() {
@@ -524,25 +1032,8 @@ function createLeftWall() {
 
   el.appendChild(grid);
 
-  // Luces de navidad colgadas en la pared
-  const lightsContainer = document.createElement('div');
-  lightsContainer.className = 'string-lights';
-  for (let i = 0; i < 18; i++) {
-    const light = document.createElement('div');
-    light.className = 'light-bulb';
-
-    if (i % 3 === 0) light.classList.add('c1');
-    else if (i % 3 === 1) light.classList.add('c2');
-    else light.classList.add('c3');
-
-    // Crear efecto de arco/colgante matemático simple
-    const drop = Math.sin((i / 17) * Math.PI) * 50;
-    light.style.transform = `translateY(${drop}px)`;
-    light.style.animationDelay = `-${Math.random() * 2}s`;
-
-    lightsContainer.appendChild(light);
-  }
-  el.appendChild(lightsContainer);
+  // Las luces LED se crean como objetos Three.js desde createStringLightsWebGL()
+  // (se llama desde init() después de posicionar la pared izquierda)
 
   return new CSS3DObject(el);
 }

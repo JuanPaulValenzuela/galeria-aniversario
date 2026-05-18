@@ -860,19 +860,67 @@ function createBackWall() {
 
   const videoContainer = document.createElement('div');
   videoContainer.className = 'video-container';
-  videoContainer.innerHTML = `
-    <iframe width="100%" height="100%" 
-      src="https://www.youtube.com/embed/3tpPDAmgWFc" 
-      title="Nuestro Video" 
-      frameborder="0" 
-      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-      allowfullscreen
-      style="border-radius: 10px; background: black;">
-    </iframe>
-  `;
+  
+  ytPlaceholderElement = document.createElement('div');
+  ytPlaceholderElement.style.width = '100%';
+  ytPlaceholderElement.style.height = '100%';
+  ytPlaceholderElement.style.borderRadius = '10px';
+  ytPlaceholderElement.style.backgroundColor = 'black';
+  videoContainer.appendChild(ytPlaceholderElement);
 
   el.appendChild(videoContainer);
+
+  // Si la API de YouTube cargó rapidísimo, inicializar de una vez
+  if (isYoutubeApiReady) {
+    initYoutubePlayer();
+  }
+
   return new CSS3DObject(el);
+}
+
+// --- Integración API de YouTube ---
+let isYoutubeApiReady = false;
+let ytPlaceholderElement = null;
+let ytPlayer = null;
+
+// Cargar el script oficial de YouTube
+const tag = document.createElement('script');
+tag.src = "https://www.youtube.com/iframe_api";
+const firstScriptTag = document.getElementsByTagName('script')[0];
+if (firstScriptTag) {
+  firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+} else {
+  document.head.appendChild(tag);
+}
+
+// Función global que llama YouTube cuando su código está listo
+window.onYouTubeIframeAPIReady = function() {
+  isYoutubeApiReady = true;
+  if (ytPlaceholderElement) {
+    initYoutubePlayer();
+  }
+};
+
+function initYoutubePlayer() {
+  if (ytPlayer) return; // Evitar inicialización doble
+  ytPlayer = new window.YT.Player(ytPlaceholderElement, {
+    videoId: '3tpPDAmgWFc',
+    playerVars: {
+      'playsinline': 1,
+      'controls': 1,
+      'rel': 0
+    },
+    events: {
+      'onStateChange': (event) => {
+        // YT.PlayerState.PLAYING = 1, PAUSED = 2, ENDED = 0
+        if (event.data === 1) {
+          setDucking(true);
+        } else if (event.data === 2 || event.data === 0) {
+          setDucking(false);
+        }
+      }
+    }
+  });
 }
 
 

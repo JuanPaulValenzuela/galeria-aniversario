@@ -11,6 +11,11 @@ let ledLights = []; // Luces LED del mural: { mesh, light, baseY, phase }
 let canMove = false;
 let bgMusic;
 
+// --- Variables globales para YouTube ---
+let isYoutubeApiReady = false;
+let ytPlaceholderElement = null;
+let ytPlayer = null;
+
 init();
 animate();
 
@@ -879,10 +884,6 @@ function createBackWall() {
 }
 
 // --- Integración API de YouTube ---
-let isYoutubeApiReady = false;
-let ytPlaceholderElement = null;
-let ytPlayer = null;
-
 // Cargar el script oficial de YouTube
 const tag = document.createElement('script');
 tag.src = "https://www.youtube.com/iframe_api";
